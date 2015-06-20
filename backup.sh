@@ -1,17 +1,30 @@
 #!/bin/bash
 
+# Copyright (C) 2015 Alessandro Pellegrini <alessandro@pellegrini.tk>
 
-destination_path="backup" # No trailing slash
 
+destination_path="backupi-132" # No trailing slash
+domain="roma132.it" # No http, no www, no trailing slash
 
 base_url="http://web.archive.org"
 
 
+get_initial_pool () {
+	wget ${base_url}/web/*/http://www.${domain}/* -O raw-list
+	cat raw-list | grep href | grep -v link | grep -v Wayback | sed 's/">.*<\/a>//g' | sed 's/<a href="//g' | sed 's/^\t*//g' | sed 's/^ *//g' > list
+}
+
+
+differentiate() {
+	grep -v \* $1 > definitive
+	grep \* $1 > to-find-out
+}
+
 download_list() {
 	while IFS='' read -r line || [[ -n $line ]]; do
 		destination=$(echo $line | sed 's/\/web\/[0-9a-z_]*\///g')
-		destination=$(echo $destination | sed 's/http:\/\/www\.studiolegalemartignetti\.it\///g')
-		destination=$(echo $destination | sed 's/http:\/\/studiolegalemartignetti\.it\///g')
+		destination=$(echo $destination | sed "s/http:\/\/www\.${domain}\///g")
+		destination=$(echo $destination | sed "s/http:\/\/${domain}\///g")
 
 		# Add initial destination path
 		destination="./$destination_path/$destination"
@@ -20,7 +33,7 @@ download_list() {
 
 		name=$(basename $destination)
 
-		#if no extension found, it's likely a folder with missing index.html
+		# If no extension found, it's likely a folder with missing index.html
 		if test "${name%.*}" = "$name"; then
 			destination="${destination}/index.html"
 			path=$(dirname $destination)
@@ -35,4 +48,14 @@ download_list() {
 	done < $1
 }
 
-download_list definitive
+
+
+
+
+get_initial_pool
+
+differentiate list
+
+
+
+#download_list definitive
