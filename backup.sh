@@ -150,13 +150,18 @@ download_list() {
 			name=$(basename $destination)
 		fi
 
-		echo -e "download $line \n to $destination \n in $path \n basename $name \n"
-		mkdir -p $path
-		wget -q ${base_url}$line -O $destination
+		if grep -q ${domain} <<< $line; then
 
-		find_new_links $destination
+			echo -e "download $line \n to $destination \n in $path \n basename $name \n"
+			mkdir -p $path
+			wget -q ${base_url}$line -O $destination
 
-		sleep 1
+			find_new_links $destination
+
+			sleep 1
+		else
+			echo -e "skipping $line \n it appears to be an external link\n"
+		fi
 	done < $1
 
 }
@@ -179,6 +184,7 @@ check_complete() {
 
 truncate -s 0 backup.log
 truncate -s 0 additional
+truncate -s 0 list
 
 
 get_initial_pool list $domain
@@ -190,3 +196,5 @@ while : ; do
 	if check_complete ; then break; fi
 done
 
+unlink additional
+unlink list
