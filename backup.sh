@@ -3,8 +3,9 @@
 # Copyright (C) 2015 Alessandro Pellegrini <alessandro@pellegrini.tk>
 
 
-destination_path="backupi-132" # No trailing slash
-domain="roma132.it" # No http, no www, no trailing slash
+destination_path="martignetti" # No trailing slash
+domain="studiolegalemartignetti.it" # No http, no www, no trailing slash
+
 
 base_url="http://web.archive.org"
 
@@ -34,6 +35,31 @@ add_latest_to_list() {
 	echo -e "**** Getting the latest version of files with multiple mementos\n"
 
 	while IFS='' read -r line || [[ -n $line ]]; do
+
+		# If file is already downloaded, skip this
+
+		destination=$(echo $line | sed 's/\/web\/[0-9a-z_]*\///g')
+		destination=$(echo $destination | sed "s/http:\/\/www\.${domain}\///g")
+		destination=$(echo $destination | sed "s/http:\/\/${domain}\///g")
+
+		# Add initial destination path
+		destination="./$destination_path/$destination"
+
+		path=$(dirname $destination)
+
+		name=$(basename $destination)
+
+		# If no extension found, it's likely a folder with missing index.html
+		if test "${name%.*}" = "$name"; then
+			destination="${destination}/index.html"
+			path=$(dirname $destination)
+			name=$(basename $destination)
+		fi
+
+		if [ -f "$destination" ]; then
+			continue
+		fi
+
 		wget -q ${base_url}${line} -O mementos
 		latest=$(grep -A 3 between mementos | tail -n 1 | sed -n 's/.*href="\([^"]*\)".*/\1/p')
 		echo -e "Multiple mementos for $line \n resolved to $latest"
@@ -60,41 +86,49 @@ get_remote_link() {
 }
 
 
-find_new_links() {
-# $1 is the just-dowloaded file
 
+store_new_links() {
 
 	name=$(basename $1)	
 	ext=${name##*.}
 
-	# We just look into html and css files
 	if [ "$ext" = "htm" ] || [ "$ext" = "html" ] || [ "$ext" = "php" ] || [ "$ext" = "php5" ] || [ "$ext" = "css" ]; then
 		echo -e "**** Scanning for additional unreferenced links in $1\n"
-		cat $1 | ./list_urls.sed > tmp-new-link
-
-		while IFS='' read -r found_link || [[ -n $found_link ]]; do
-
-			if [ -z $found_link ] ||  [[ ${found_link:0:1} == "#" ]]; then
-				echo "**** $found_link does not appear to be valid"
-			else
-
-				# Discard the link if already present
-				if grep -Fxq "$found_link" backup.log; then
-					echo "**** $found_link discarded, as it is already present in the list"
-				else
-					echo -n "**** Checking if $found_link has a remote backup... "
-					found_link=$(get_remote_link $found_link)
-					if [ -z $found_link ]; then
-						echo "no. Cannot add it to the pool of files to download."
-					else
-						echo "yes. Adding it.\n"
-						echo $found_link >> additional
-					fi
-					sleep 1
-				fi
-			fi
-		done < tmp-new-link
+		cat $1 | ./list_urls.sed > tmp-new-link.tmp
+		cat tmp-new-link.tmp | sort | uniq >> tmp-new-link
+		cat tmp-new-link | sort | uniq > tmp-new-link.tmp
+		mv tmp-new-link.tmp tmp-new-link
 	fi
+}
+
+find_new_links() {
+# $1 is the just-dowloaded file
+
+	echo -e "**** Scanning for additional unreferenced links\n"
+
+	while IFS='' read -r found_link || [[ -n $found_link ]]; do
+
+		if [ -z $found_link ] ||  [[ ${found_link:0:1} == "#" ]]; then
+			echo "**** $found_link does not appear to be valid"
+		else
+
+			# Discard the link if already present
+			if grep -Fxq "$found_link" backup.log; then
+				echo "**** $found_link discarded, as it is already present in the list"
+			else
+				echo -n "**** Checking if $found_link has a remote backup... "
+				found_link=$(get_remote_link $found_link)
+				if [ -z $found_link ]; then
+					echo "no. Cannot add it to the pool of files to download."
+				else
+					echo "yes. Adding it.\n"
+					echo $found_link >> additional
+				fi
+				sleep 1
+			fi
+		fi
+	done < tmp-new-link
+	truncate -s 0 tmp-new-link
 }
 
 
@@ -151,7 +185,7 @@ download_list() {
 			mkdir -p $path
 			wget -q ${base_url}$line -O $destination
 
-			find_new_links $destination
+			store_new_links $destination
 			make_links_local $destination
 
 			sleep 1
@@ -189,6 +223,7 @@ while : ; do
 	differentiate list
 	add_latest_to_list to-find-out definitive
 	download_list definitive
+	find_new_links
 	if check_complete ; then break; fi
 done
 
