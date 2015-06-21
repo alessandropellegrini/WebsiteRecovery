@@ -112,6 +112,28 @@ find_new_links() {
 			echo "**** $found_link does not appear to be valid"
 		else
 
+			destination=$(echo $found_link | sed 's/\/web\/[0-9a-z_]*\///g')
+			destination=$(echo $destination | sed "s/http:\/\/www\.${domain}\///g")
+			destination=$(echo $destination | sed "s/http:\/\/${domain}\///g")
+	
+			# Add initial destination path
+			destination="./$destination_path/$destination"
+	
+			path=$(dirname $destination)
+	
+			name=$(basename $destination)
+	
+			# If no extension found, it's likely a folder with missing index.html
+			if test "${name%.*}" = "$name"; then
+				destination="${destination}/index.html"
+				path=$(dirname $destination)
+				name=$(basename $destination)
+			fi
+	
+			if [ -f "$destination" ]; then
+				continue
+			fi
+
 			# Discard the link if already present
 			if grep -Fxq "$found_link" backup.log; then
 				echo "**** $found_link discarded, as it is already present in the list"
@@ -212,7 +234,6 @@ check_complete() {
 }
 
 
-truncate -s 0 backup.log
 truncate -s 0 additional
 truncate -s 0 list
 
