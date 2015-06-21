@@ -63,13 +63,13 @@ get_remote_link() {
 find_new_links() {
 # $1 is the just dowloaded file
 
-	echo -e "**** Scanning for additional unreferenced links\n"
 
 	name=$(basename $1)	
 	ext=${name##*.}
 
 	# We just look into html files here
 	if [ "$ext" = "htm" ] || [ "$ext" = "html" ] || [ "$ext" = "php" ] || [ "$ext" = "php5" ]; then
+		echo -e "**** Scanning for additional unreferenced links\n"
 		grep href $1 > tmp-new-link
 
 		while IFS='' read -r line || [[ -n $line ]]; do
@@ -80,7 +80,7 @@ find_new_links() {
 			fi
 			
 			# Discard the link if already present
-			if grep -Fxq "$found_link" definitive; then
+			if grep -Fxq "$found_link" backup.log; then
 				echo "**** $found_link discarded, as it is already present in the list"
 			else
 				echo -n "**** Checking if $found_link has a remote backup... "
@@ -97,6 +97,7 @@ find_new_links() {
 
 	# CSS is another story...
 	if [ "$ext" = "css" ]; then
+		echo -e "**** Scanning for additional unreferenced links\n"
 		grep url $1 > tmp-new-link
 
 		while IFS='' read -r line || [[ -n $line ]]; do
@@ -107,7 +108,7 @@ find_new_links() {
 			fi
 			
 			# Discard the link if already present
-			if grep -Fxq "$found_link" definitive; then
+			if grep -Fxq "$found_link" backup.log; then
 				echo "**** $found_link discarded, as it is already present in the list"
 			else
 				echo -n "**** Checking if $found_link has a remote backup... "
@@ -127,6 +128,8 @@ find_new_links() {
 download_list() {
 
 	echo -e "**** Downloading the list of files\n"
+
+	cat $1 >> backup.log
 
 	while IFS='' read -r line || [[ -n $line ]]; do
 		destination=$(echo $line | sed 's/\/web\/[0-9a-z_]*\///g')
@@ -156,7 +159,6 @@ download_list() {
 		sleep 1
 	done < $1
 
-	cat $1 >> backup.log
 }
 
 
@@ -165,9 +167,9 @@ check_complete() {
 	echo -e "**** Checking if other files should be downloaded...\n"
 
 	unlink definitive 2> /dev/null
-	mv additional definitive 2> /dev/null
+	mv additional list 2> /dev/null
 
-	if [ -s "definitive" ]; then
+	if [ -s "list" ]; then
 		return 1
 	fi
 
@@ -179,10 +181,12 @@ truncate -s 0 backup.log
 truncate -s 0 additional
 
 
+get_initial_pool list $domain
+
 while : ; do
-	get_initial_pool list $domain
 	differentiate list
 	add_latest_to_list to-find-out definitive
 	download_list definitive
 	if check_complete ; then break; fi
 done
+
