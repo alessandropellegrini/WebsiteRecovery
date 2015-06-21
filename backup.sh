@@ -38,7 +38,9 @@ add_latest_to_list() {
 
 		# If file is already downloaded, skip this
 
-		destination=$(echo $line | sed 's/\/web\/[0-9a-z_]*\///g')
+		destination=$(echo $line | sed 's/\/web\/[0-9a-z_\*]*\///g')
+		destination=$(echo $destination | sed 's/\*//g')
+		destination=$(echo $destination | sed 's/:80//g')
 		destination=$(echo $destination | sed "s/http:\/\/www\.${domain}\///g")
 		destination=$(echo $destination | sed "s/http:\/\/${domain}\///g")
 
@@ -55,6 +57,8 @@ add_latest_to_list() {
 			path=$(dirname $destination)
 			name=$(basename $destination)
 		fi
+
+		echo "Checking for $destination"
 
 		if [ -f "$destination" ]; then
 			continue
@@ -112,7 +116,9 @@ find_new_links() {
 			echo "**** $found_link does not appear to be valid"
 		else
 
-			destination=$(echo $found_link | sed 's/\/web\/[0-9a-z_]*\///g')
+			destination=$(echo $found_link | sed 's/\/web\/[0-9a-z_\*]*\///g')
+			destination=$(echo $destination | sed 's/\*//g')
+			destination=$(echo $destination | sed 's/:80//g')
 			destination=$(echo $destination | sed "s/http:\/\/www\.${domain}\///g")
 			destination=$(echo $destination | sed "s/http:\/\/${domain}\///g")
 	
@@ -131,6 +137,7 @@ find_new_links() {
 			fi
 	
 			if [ -f "$destination" ]; then
+				echo "**** $found_link maps to $destination: skipping..."
 				continue
 			fi
 
