@@ -98,6 +98,23 @@ find_new_links() {
 }
 
 
+make_links_local() {
+# $1 is the just-downloaded file
+	name=$(basename $1)	
+	ext=${name##*.}
+
+	# We just look into html and css files
+	if [ "$ext" = "htm" ] || [ "$ext" = "html" ] || [ "$ext" = "php" ] || [ "$ext" = "php5" ] || [ "$ext" = "css" ]; then
+
+		echo -e "**** Converting absolute links to relative links in $1"
+	 	sed -i "s/http:\/\/www.${domain}\//\.\//g" $1
+		sed -i "s/http:\/\/${domain}\//\.\//g" $1
+		sed -i "s/${domain}\//\.\//g" $1
+		sed -i "s/\/web\/[0-9a-z_]*\///g" $1
+	fi
+}
+
+
 download_list() {
 
 	echo -e "**** Downloading the list of files\n"
@@ -130,6 +147,7 @@ download_list() {
 			wget -q ${base_url}$line -O $destination
 
 			find_new_links $destination
+			make_links_local $destination
 
 			sleep 1
 		else
@@ -164,7 +182,7 @@ get_initial_pool list $domain
 
 while : ; do
 	differentiate list
-#	add_latest_to_list to-find-out definitive
+	add_latest_to_list to-find-out definitive
 	download_list definitive
 	if check_complete ; then break; fi
 done
