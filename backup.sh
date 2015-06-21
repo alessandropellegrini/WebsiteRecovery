@@ -61,63 +61,36 @@ get_remote_link() {
 
 
 find_new_links() {
-# $1 is the just dowloaded file
+# $1 is the just-dowloaded file
 
 
 	name=$(basename $1)	
 	ext=${name##*.}
 
-	# We just look into html files here
-	if [ "$ext" = "htm" ] || [ "$ext" = "html" ] || [ "$ext" = "php" ] || [ "$ext" = "php5" ]; then
-		echo -e "**** Scanning for additional unreferenced links\n"
-		grep href $1 > tmp-new-link
+	# We just look into html and css files
+	if [ "$ext" = "htm" ] || [ "$ext" = "html" ] || [ "$ext" = "php" ] || [ "$ext" = "php5" ] || [ "$ext" = "css" ]; then
+		echo -e "**** Scanning for additional unreferenced links in $1\n"
+		cat $1 | ./list_urls.sed > tmp-new-link
 
-		while IFS='' read -r line || [[ -n $line ]]; do
-			found_link=$(echo $line | sed -n 's/.*href="\([^"]*\)".*/\1/p')
+		while IFS='' read -r found_link || [[ -n $found_link ]]; do
 
-			if [ -z $found_link ]; then
-				continue;
-			fi
-			
-			# Discard the link if already present
-			if grep -Fxq "$found_link" backup.log; then
-				echo "**** $found_link discarded, as it is already present in the list"
+			if [ -z $found_link ] ||  [[ ${found_link:0:1} == "#" ]]; then
+				echo "**** $found_link does not appear to be valid"
 			else
-				echo -n "**** Checking if $found_link has a remote backup... "
-				found_link=$(get_remote_link $found_link)
-				if [ -z $found_link ]; then
-					echo "no. Cannot add it to the pool of files to download."
+
+				# Discard the link if already present
+				if grep -Fxq "$found_link" backup.log; then
+					echo "**** $found_link discarded, as it is already present in the list"
 				else
-					echo "yes. Adding it.\n"
-					echo $found_link >> additional
-				fi
-			fi
-		done < tmp-new-link
-	fi
-
-	# CSS is another story...
-	if [ "$ext" = "css" ]; then
-		echo -e "**** Scanning for additional unreferenced links\n"
-		grep url $1 > tmp-new-link
-
-		while IFS='' read -r line || [[ -n $line ]]; do
-			found_link=$(echo $line | sed -n 's/.*url(\([^"]*\)).*/\1/p')
-
-			if [ -z $found_link ]; then
-				continue;
-			fi
-			
-			# Discard the link if already present
-			if grep -Fxq "$found_link" backup.log; then
-				echo "**** $found_link discarded, as it is already present in the list"
-			else
-				echo -n "**** Checking if $found_link has a remote backup... "
-				found_link=$(get_remote_link $found_link)
-				if [ -z $found_link ]; then
-					echo "no. Cannot add it to the pool of files to download."
-				else
-					echo "yes. Adding it.\n"
-					echo $found_link >> additional
+					echo -n "**** Checking if $found_link has a remote backup... "
+					found_link=$(get_remote_link $found_link)
+					if [ -z $found_link ]; then
+						echo "no. Cannot add it to the pool of files to download."
+					else
+						echo "yes. Adding it.\n"
+						echo $found_link >> additional
+					fi
+					sleep 1
 				fi
 			fi
 		done < tmp-new-link
@@ -191,10 +164,9 @@ get_initial_pool list $domain
 
 while : ; do
 	differentiate list
-	add_latest_to_list to-find-out definitive
+#	add_latest_to_list to-find-out definitive
 	download_list definitive
 	if check_complete ; then break; fi
 done
 
-unlink additional
 unlink list
