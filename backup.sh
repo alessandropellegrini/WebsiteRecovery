@@ -142,6 +142,11 @@ download_list() {
 
 		if grep -q ${domain} <<< $line; then
 
+			# Check if we have already downloaded this file
+			if [ -f "$destination" ]; then
+				continue;
+			fi
+
 			echo -e "download $line \n to $destination \n in $path \n basename $name \n"
 			mkdir -p $path
 			wget -q ${base_url}$line -O $destination
