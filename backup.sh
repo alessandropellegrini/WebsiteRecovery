@@ -3,12 +3,12 @@
 # Copyright (C) 2015 Alessandro Pellegrini <alessandro@pellegrini.tk>
 
 
-destination_path="martignetti" # No trailing slash
-domain="studiolegalemartignetti.it" # No http, no www, no trailing slash
+destination_path="subfolder" # No trailing slash
+domain="example.com" # No http, no www, no trailing slash
 
 
+# Do not touch this
 base_url="http://web.archive.org"
-
 
 get_initial_pool () {
 
