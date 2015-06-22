@@ -203,7 +203,7 @@ download_list() {
 			name=$(basename $destination)
 		fi
 
-		if grep -q ${domain} <<< $line; then
+		if grep -q ${domain} <<< $line || grep -q facebook <<< $line ; then
 
 			# Check if we have already downloaded this file
 			if [ -f "$destination" ]; then
@@ -241,6 +241,34 @@ check_complete() {
 }
 
 
+r_level="\\.\\/"
+recurse_folders() {
+
+	local dir="$1"
+	local i=""
+	local old_level="$r_level"
+
+	echo "Entering $dir..."
+
+	for i in $dir/*; do
+		if [[ -d "$i" ]]; then
+			r_level="${r_level}\\.\\.\\/"
+			recurse_folders "$i"
+			r_level="$old_level"
+		else
+			name=$(basename $i)
+		        ext=${name##*.}
+			if [ "$ext" = "html" ] || [ "$ext" = "php" ] || [ "$ext" = "htm" ]; then
+				echo "*** level: $r_level - $i"
+				sed -i "s/\"\\.\\//\"${r_level}/g" $i
+			fi
+
+		fi
+	done	
+}
+
+
+
 truncate -s 0 additional
 truncate -s 0 list
 
@@ -251,8 +279,18 @@ while : ; do
 	differentiate list
 	add_latest_to_list to-find-out definitive
 	download_list definitive
+
+	# This is not needed, unless we kill the job and try to restart it, at an advanced state
+	find . -name "*.html" > tmp-list-additional
+	while IFS='' read -r line || [[ -n $line ]]; do	
+		store_new_links $line
+	done < tmp-list-additional
+
 	find_new_links
 	if check_complete ; then break; fi
 done
+
+echo -e "**** Refactoring links accounting for local hierarchy... \n"
+recurse_folders "$destination_path"
 
 unlink list
